@@ -1,0 +1,47 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: white;
+}
+
+.container {
+    max-width: 500px;
+    margin: 50px auto;
+    padding: 20px;
+    text-align: center;
+}
+
+input {
+    width: 90%;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border: none;
+}
+
+button {
+    padding: 12px 25px;
+    border: none;
+    border-radius: 8px;
+    background: #2196f3;
+    color: white;
+    font-size: 16px;
+}
+
+#messages {
+    height: 400px;
+    overflow-y: auto;
+    background: #222;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+}
+
+.message {
+    padding: 8px;
+    margin: 5px;
+    background: #333;
+    border-radius: 8px;
+    text-align: left;
+}

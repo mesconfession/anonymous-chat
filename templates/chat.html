@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Anonymous Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #0b0b0f;
+            color: white;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 18px;
+            background: #15151c;
+            text-align: center;
+            border-bottom: 1px solid #292933;
+        }
+
+        header h2 {
+            margin: 0;
+        }
+
+        #status {
+            margin-top: 6px;
+            color: #888;
+            font-size: 13px;
+        }
+
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 10px 14px;
+            margin: 8px 0;
+            border-radius: 15px;
+            word-wrap: break-word;
+        }
+
+        .mine {
+            margin-left: auto;
+            background: white;
+            color: black;
+            border-bottom-right-radius: 4px;
+        }
+
+        .theirs {
+            margin-right: auto;
+            background: #24242d;
+            border-bottom-left-radius: 4px;
+        }
+
+        #bottom {
+            padding: 10px;
+            background: #15151c;
+            display: flex;
+            gap: 8px;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 13px;
+            border: none;
+            border-radius: 12px;
+            background: #252530;
+            color: white;
+            outline: none;
+        }
+
+        button {
+            border: none;
+            border-radius: 12px;
+            padding: 0 16px;
+            font-weight: bold;
+        }
+
+        #send {
+            background: white;
+            color: black;
+        }
+
+        #next {
+            background: #33333d;
+            color: white;
+        }
+
+        #report {
+            background: #3a2020;
+            color: white;
+        }
+
+        #waiting {
+            text-align: center;
+            color: #888;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h2>Anonymous Chat</h2>
+    <div id="status">Connecting...</div>
+</header>
+
+<div id="messages">
+    <div id="waiting">Looking for someone online...</div>
+</div>
+
+<div id="bottom">
+
+    <input
+        id="messageInput"
+        type="text"
+        placeholder="Type a message..."
+        maxlength="1000"
+    >
+
+    <button id="send">Send</button>
+
+    <button id="next">Next</button>
+
+    <button id="report">Report</button>
+
+</div>
+
+<script>
+
+const socket = io();
+
+const messages = document.getElementById("messages");
+const input = document.getElementById("messageInput");
+const statusText = document.getElementById("status");
+const waiting = document.getElementById("waiting");
+
+let partner = null;
+
+
+function addMessage(sender, message) {
+
+    if (waiting) {
+        waiting.remove();
+    }
+
+    const div = document.createElement("div");
+
+    div.classList.add("message");
+
+    if (sender === "{{ user_id }}") {
+        div.classList.add("mine");
+    } else {
+        div.classList.add("theirs");
+    }
+
+    div.textContent = message;
+
+    messages.appendChild(div);
+
+    messages.scrollTop = messages.scrollHeight;
+}
+
+
+socket.on("connect", function() {
+
+    statusText.textContent = "Connected";
+
+});
+
+
+socket.on("waiting", function() {
+
+    partner = null;
+
+    statusText.textContent = "Looking for someone...";
+
+});
+
+
+socket.on("matched", function(data) {
+
+    partner = data.partner;
+
+    statusText.textContent = "You are connected";
+
+    messages.innerHTML = "";
+
+    addMessage(
+        "system",
+        "You are now connected with a random person"
+    );
+
+    socket.emit("load_messages");
+
+});
+
+
+socket.on("message", function(data) {
+
+    addMessage(
+        data.sender,
+        data.message
+    );
+
+});
+
+
+socket.on("partner_offline", function() {
+
+    partner = null;
+
+    statusText.textContent = "Partner went offline";
+
+    addMessage(
+        "system",
+        "Your partner went offline. Waiting for another person..."
+    );
+
+});
+
+
+socket.on("disconnected", function() {
+
+    partner = null;
+
+    statusText.textContent = "Disconnected";
+
+});
+
+
+function sendMessage() {
+
+    const message = input.value.trim();
+
+    if (!message) {
+        return;
+    }
+
+    if (!partner) {
+        alert("You are not connected to anyone yet");
+        return;
+    }
+
+    socket.emit("send_message", {
+        message: message
+    });
+
+    addMessage(
+        "{{ user_id }}",
+        message
+    );
+
+    input.value = "";
+
+}
+
+
+document.getElementById("send").addEventListener(
+    "click",
+    sendMessage
+);
+
+
+input.addEventListener("keydown", function(event) {
+
+    if (event.key === "Enter") {
+        sendMessage();
+    }
+
+});
+
+
+document.getElementById("next").addEventListener(
+    "click",
+    function() {
+
+        messages.innerHTML = "";
+
+        statusText.textContent = "Finding someone...";
+
+        partner = null;
+
+        socket.emit("next");
+
+    }
+);
+
+
+document.getElementById("report").addEventListener(
+    "click",
+    function() {
+
+        if (!partner) {
+            alert("Nobody is connected");
+            return;
+        }
+
+        const reason = prompt(
+            "Why do you want to report this person?"
+        );
+
+        if (!reason) {
+            return;
+        }
+
+        fetch("/report", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+
+            body:
+                "reported=" +
+                encodeURIComponent(partner) +
+                "&reason=" +
+                encodeURIComponent(reason)
+
+        });
+
+        alert("Report submitted");
+
+    }
+);
+
+</script>
+
+</body>
+</html>
